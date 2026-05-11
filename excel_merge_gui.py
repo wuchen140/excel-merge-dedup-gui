@@ -180,18 +180,6 @@ class MainWindow(QMainWindow):
         shell_layout.setContentsMargins(20, 14, 20, 16)
         shell_layout.setSpacing(12)
 
-        title_bar = QWidget()
-        title_bar_layout = QHBoxLayout(title_bar)
-        title_bar_layout.setContentsMargins(0, 0, 0, 0)
-        title_bar_layout.setSpacing(6)
-        for color in ("#FF5F57", "#FFBD2E", "#28C840"):
-            dot = QFrame()
-            dot.setObjectName("windowDot")
-            dot.setStyleSheet(f"background:{color}; border-radius:5px;")
-            dot.setFixedSize(10, 10)
-            title_bar_layout.addWidget(dot)
-        title_bar_layout.addStretch()
-
         title = QLabel("Excel 多表合并去重工具")
         title.setObjectName("titleLabel")
         title.setStyleSheet("font-size: 24px; font-weight: 700;")
@@ -284,7 +272,6 @@ class MainWindow(QMainWindow):
         log_layout.addWidget(log_title)
         log_layout.addWidget(self.log_box, 1)
 
-        shell_layout.addWidget(title_bar)
         shell_layout.addWidget(title)
         shell_layout.addWidget(subtitle)
         shell_layout.addWidget(form_card)
