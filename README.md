@@ -26,13 +26,20 @@ python3 -m venv .venv
 
 ## 打包（macOS）
 
+推荐（启动更快，`onedir`）：
+
+```bash
+.venv/bin/pyinstaller --noconfirm --clean --windowed --name ExcelMergeDedup excel_merge_gui.py
+```
+
+兼容单文件（体积集中，但启动较慢）：
+
 ```bash
 .venv/bin/pyinstaller --noconfirm --clean --onefile --windowed --name ExcelMergeDedup excel_merge_gui.py
 ```
 
-打包产物：
+打包产物（推荐 `onedir`）：
 
-- `/Users/wuchen/Desktop/excel_merge_tool/dist/ExcelMergeDedup`
 - `/Users/wuchen/Desktop/excel_merge_tool/dist/ExcelMergeDedup.app`
 
 > 首次打开可能需要在系统设置里允许该应用运行（未做开发者证书签名）。

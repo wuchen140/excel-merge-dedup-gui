@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Dict, List, Tuple
 
-from openpyxl import Workbook, load_workbook
 from PySide6.QtCore import QObject, QThread, Signal
 from PySide6.QtWidgets import (
     QApplication,
@@ -67,6 +66,9 @@ def merge_excel_sheets(
     sheet_name: str,
     log: Callable[[str], None],
 ) -> MergeStats:
+    # Lazy import to keep app cold-start fast.
+    from openpyxl import Workbook, load_workbook
+
     if not input_path.exists():
         raise FileNotFoundError(f"输入文件不存在: {input_path}")
     if input_path.suffix.lower() != ".xlsx":

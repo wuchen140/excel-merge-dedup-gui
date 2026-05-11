@@ -1,4 +1,6 @@
 .venv/
 build/
+build-fast/
+dist-fast/
 __pycache__/
 *.pyc
