@@ -9,9 +9,10 @@ from openpyxl import Workbook, load_workbook
 from PySide6.QtCore import QObject, QThread, Signal
 from PySide6.QtWidgets import (
     QApplication,
+    QButtonGroup,
     QFileDialog,
+    QFrame,
     QGridLayout,
-    QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -19,7 +20,6 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QPlainTextEdit,
-    QRadioButton,
     QVBoxLayout,
     QWidget,
 )
@@ -164,25 +164,46 @@ class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("Excel 多表合并去重工具")
-        self.resize(920, 620)
+        self.resize(920, 640)
 
         self.thread: QThread | None = None
         self.worker: MergeWorker | None = None
 
-        container = QWidget()
-        root = QVBoxLayout(container)
-        root.setContentsMargins(16, 16, 16, 16)
-        root.setSpacing(10)
+        page = QWidget()
+        root = QVBoxLayout(page)
+        root.setContentsMargins(20, 20, 20, 20)
+        root.setSpacing(0)
+
+        shell = QFrame()
+        shell.setObjectName("shellCard")
+        shell_layout = QVBoxLayout(shell)
+        shell_layout.setContentsMargins(20, 14, 20, 16)
+        shell_layout.setSpacing(12)
+
+        title_bar = QWidget()
+        title_bar_layout = QHBoxLayout(title_bar)
+        title_bar_layout.setContentsMargins(0, 0, 0, 0)
+        title_bar_layout.setSpacing(6)
+        for color in ("#FF5F57", "#FFBD2E", "#28C840"):
+            dot = QFrame()
+            dot.setObjectName("windowDot")
+            dot.setStyleSheet(f"background:{color}; border-radius:5px;")
+            dot.setFixedSize(10, 10)
+            title_bar_layout.addWidget(dot)
+        title_bar_layout.addStretch()
 
         title = QLabel("Excel 多表合并去重工具")
+        title.setObjectName("titleLabel")
         title.setStyleSheet("font-size: 24px; font-weight: 700;")
         subtitle = QLabel("选择输入文件、输出路径和去重方式，然后执行合并。")
-        subtitle.setStyleSheet("color: #4B5563;")
+        subtitle.setObjectName("subLabel")
 
-        form_box = QGroupBox()
-        form_layout = QGridLayout(form_box)
+        form_card = QFrame()
+        form_card.setObjectName("formCard")
+        form_layout = QGridLayout(form_card)
+        form_layout.setContentsMargins(0, 0, 0, 0)
         form_layout.setHorizontalSpacing(8)
-        form_layout.setVerticalSpacing(10)
+        form_layout.setVerticalSpacing(12)
 
         self.input_edit = QLineEdit()
         self.output_edit = QLineEdit()
@@ -191,9 +212,25 @@ class MainWindow(QMainWindow):
         self.output_btn = QPushButton("保存为")
         self.run_btn = QPushButton("开始合并")
         self.clear_log_btn = QPushButton("清空日志")
-        self.all_radio = QRadioButton("全部列")
-        self.en_radio = QRadioButton("仅英文列")
-        self.all_radio.setChecked(True)
+        self.input_btn.setObjectName("primaryButton")
+        self.run_btn.setObjectName("primaryButton")
+        self.output_btn.setObjectName("secondaryButton")
+        self.clear_log_btn.setObjectName("secondaryButton")
+
+        self.input_edit.setPlaceholderText("未选择文件")
+        self.output_edit.setPlaceholderText("默认：输入文件名_合并去重.xlsx")
+
+        self.all_btn = QPushButton("全部列")
+        self.en_btn = QPushButton("仅英文列")
+        self.all_btn.setCheckable(True)
+        self.en_btn.setCheckable(True)
+        self.all_btn.setChecked(True)
+        self.all_btn.setObjectName("segmentButton")
+        self.en_btn.setObjectName("segmentButton")
+        self.dedup_group = QButtonGroup(self)
+        self.dedup_group.setExclusive(True)
+        self.dedup_group.addButton(self.all_btn)
+        self.dedup_group.addButton(self.en_btn)
 
         form_layout.addWidget(QLabel("输入文件"), 0, 0)
         form_layout.addWidget(self.input_edit, 0, 1)
@@ -206,9 +243,15 @@ class MainWindow(QMainWindow):
         dedup_row = QWidget()
         dedup_layout = QHBoxLayout(dedup_row)
         dedup_layout.setContentsMargins(0, 0, 0, 0)
-        dedup_layout.setSpacing(12)
-        dedup_layout.addWidget(self.all_radio)
-        dedup_layout.addWidget(self.en_radio)
+        dedup_layout.setSpacing(0)
+        dedup_wrap = QFrame()
+        dedup_wrap.setObjectName("segmentWrap")
+        dedup_wrap_layout = QHBoxLayout(dedup_wrap)
+        dedup_wrap_layout.setContentsMargins(4, 4, 4, 4)
+        dedup_wrap_layout.setSpacing(4)
+        dedup_wrap_layout.addWidget(self.all_btn)
+        dedup_wrap_layout.addWidget(self.en_btn)
+        dedup_layout.addWidget(dedup_wrap)
         dedup_layout.addStretch()
 
         form_layout.addWidget(QLabel("去重方式"), 2, 0)
@@ -226,20 +269,129 @@ class MainWindow(QMainWindow):
         action_layout.addWidget(self.clear_log_btn)
         action_layout.addStretch()
 
-        self.log_box = QPlainTextEdit()
-        self.log_box.setReadOnly(True)
+        log_card = QFrame()
+        log_card.setObjectName("logCard")
+        log_layout = QVBoxLayout(log_card)
+        log_layout.setContentsMargins(12, 10, 12, 12)
+        log_layout.setSpacing(8)
+        log_title = QLabel("运行日志")
+        log_title.setObjectName("logTitle")
 
-        root.addWidget(title)
-        root.addWidget(subtitle)
-        root.addWidget(form_box)
-        root.addWidget(action_row)
-        root.addWidget(self.log_box, 1)
-        self.setCentralWidget(container)
+        self.log_box = QPlainTextEdit()
+        self.log_box.setObjectName("logBox")
+        self.log_box.setReadOnly(True)
+        self.log_box.setPlaceholderText("等待开始...")
+        log_layout.addWidget(log_title)
+        log_layout.addWidget(self.log_box, 1)
+
+        shell_layout.addWidget(title_bar)
+        shell_layout.addWidget(title)
+        shell_layout.addWidget(subtitle)
+        shell_layout.addWidget(form_card)
+        shell_layout.addWidget(action_row)
+        shell_layout.addWidget(log_card, 1)
+        root.addWidget(shell)
+        self.setCentralWidget(page)
+        self.apply_styles()
 
         self.input_btn.clicked.connect(self.choose_input_file)
         self.output_btn.clicked.connect(self.choose_output_file)
         self.run_btn.clicked.connect(self.start_merge)
         self.clear_log_btn.clicked.connect(self.log_box.clear)
+
+    def apply_styles(self) -> None:
+        self.setStyleSheet(
+            """
+            QWidget {
+                background: #ECECF1;
+                color: #1D1D1F;
+                font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Helvetica Neue";
+                font-size: 13px;
+            }
+            QFrame#shellCard {
+                background: #FFFFFF;
+                border: 1px solid #D1D1D6;
+                border-radius: 16px;
+            }
+            QLabel#titleLabel {
+                font-size: 26px;
+                font-weight: 700;
+            }
+            QLabel#subLabel {
+                color: #6E6E73;
+                font-size: 13px;
+            }
+            QLineEdit {
+                background: #FFFFFF;
+                border: 1px solid #D2D2D7;
+                border-radius: 10px;
+                padding: 8px 12px;
+                min-height: 22px;
+                selection-background-color: #007AFF;
+            }
+            QPushButton {
+                border-radius: 10px;
+                min-height: 28px;
+                padding: 4px 14px;
+            }
+            QPushButton#primaryButton {
+                background: #007AFF;
+                color: #FFFFFF;
+                border: none;
+                font-weight: 600;
+            }
+            QPushButton#primaryButton:hover {
+                background: #0A84FF;
+            }
+            QPushButton#primaryButton:disabled {
+                background: #A8D2FF;
+                color: #F3F8FF;
+            }
+            QPushButton#secondaryButton {
+                background: #F2F2F7;
+                color: #1D1D1F;
+                border: 1px solid #D1D1D6;
+            }
+            QFrame#segmentWrap {
+                background: #F2F2F7;
+                border-radius: 10px;
+            }
+            QPushButton#segmentButton {
+                background: transparent;
+                border: 1px solid transparent;
+                border-radius: 8px;
+                color: #6E6E73;
+                font-weight: 500;
+                min-width: 72px;
+                min-height: 24px;
+                padding: 2px 10px;
+            }
+            QPushButton#segmentButton:checked {
+                background: #FFFFFF;
+                color: #1D1D1F;
+                border: 1px solid #D8D8DD;
+                font-weight: 600;
+            }
+            QFrame#logCard {
+                background: #FBFBFD;
+                border: 1px solid #E5E5EA;
+                border-radius: 12px;
+            }
+            QLabel#logTitle {
+                color: #6E6E73;
+                font-weight: 600;
+                font-size: 12px;
+            }
+            QPlainTextEdit#logBox {
+                background: #FFFFFF;
+                border: 1px solid #E5E5EA;
+                border-radius: 10px;
+                padding: 8px;
+                color: #2C2C2E;
+                selection-background-color: #B3D7FF;
+            }
+            """
+        )
 
     def append_log(self, text: str) -> None:
         self.log_box.appendPlainText(text)
@@ -276,7 +428,7 @@ class MainWindow(QMainWindow):
         output_raw = self.output_edit.text().strip()
         output_path = Path(output_raw).expanduser().resolve() if output_raw else None
         sheet_name = self.sheet_name_edit.text().strip() or "合并去重"
-        dedup_by = "all" if self.all_radio.isChecked() else "en"
+        dedup_by = "all" if self.all_btn.isChecked() else "en"
 
         self.append_log("=" * 60)
         self.append_log(f"输入文件: {input_path}")
