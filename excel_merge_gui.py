@@ -67,7 +67,8 @@ def merge_excel_sheets(
     log: Callable[[str], None],
 ) -> MergeStats:
     # Lazy import to keep app cold-start fast.
-    from openpyxl import Workbook, load_workbook
+    from openpyxl import Workbook
+    from workbook_compat import load_workbook_compat
 
     if not input_path.exists():
         raise FileNotFoundError(f"输入文件不存在: {input_path}")
@@ -75,7 +76,7 @@ def merge_excel_sheets(
         raise ValueError("仅支持 .xlsx 文件")
 
     out_path = output_path or output_path_from_input(input_path)
-    wb = load_workbook(input_path)
+    wb = load_workbook_compat(input_path, log)
     merged_rows: List[Tuple[str, str, str]] = []
     seen = set()
 

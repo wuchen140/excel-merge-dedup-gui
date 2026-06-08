@@ -20,7 +20,9 @@ import argparse
 from pathlib import Path
 from typing import Dict, List, Tuple
 
-from openpyxl import Workbook, load_workbook
+from openpyxl import Workbook
+
+from workbook_compat import load_workbook_compat
 
 TARGET_HEADERS = ("英文", "日文", "韩文")
 
@@ -79,7 +81,7 @@ def main() -> int:
 
     out_path = Path(args.output).expanduser().resolve() if args.output else output_path_from_input(input_path)
 
-    wb = load_workbook(input_path)
+    wb = load_workbook_compat(input_path, log=print)
 
     merged_rows: List[Tuple[str, str, str]] = []
     seen = set()
