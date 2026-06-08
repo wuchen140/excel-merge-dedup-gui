@@ -50,6 +50,14 @@ def output_path_from_input(input_path: Path) -> Path:
     return input_path.with_name(f"{input_path.stem}_合并去重{input_path.suffix}")
 
 
+def ensure_xlsx_suffix(path: Path) -> Path:
+    if path.suffix.lower() == ".xlsx":
+        return path
+    if path.suffix:
+        return path.with_suffix(".xlsx")
+    return path.with_name(f"{path.name}.xlsx")
+
+
 @dataclass
 class MergeStats:
     rows_read: int
@@ -168,9 +176,11 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("Excel 多表合并去重工具")
         self.resize(920, 640)
+        self.setAcceptDrops(True)
 
         self.thread: QThread | None = None
         self.worker: MergeWorker | None = None
+        self.auto_output_path = ""
 
         page = QWidget()
         root = QVBoxLayout(page)
@@ -200,16 +210,18 @@ class MainWindow(QMainWindow):
         self.output_edit = QLineEdit()
         self.sheet_name_edit = QLineEdit("合并去重")
         self.input_btn = QPushButton("浏览")
+        self.output_dir_btn = QPushButton("选择目录")
         self.output_btn = QPushButton("保存为")
         self.run_btn = QPushButton("开始合并")
         self.clear_log_btn = QPushButton("清空日志")
         self.input_btn.setObjectName("primaryButton")
         self.run_btn.setObjectName("primaryButton")
+        self.output_dir_btn.setObjectName("secondaryButton")
         self.output_btn.setObjectName("secondaryButton")
         self.clear_log_btn.setObjectName("secondaryButton")
 
-        self.input_edit.setPlaceholderText("未选择文件")
-        self.output_edit.setPlaceholderText("默认：输入文件名_合并去重.xlsx")
+        self.input_edit.setPlaceholderText("未选择文件，可点击浏览或直接拖入 .xlsx 文件")
+        self.output_edit.setPlaceholderText("默认：可改文件名，也可用“选择目录”切换输出位置")
 
         self.all_btn = QPushButton("全部列")
         self.en_btn = QPushButton("仅英文列")
@@ -226,10 +238,12 @@ class MainWindow(QMainWindow):
         form_layout.addWidget(QLabel("输入文件"), 0, 0)
         form_layout.addWidget(self.input_edit, 0, 1)
         form_layout.addWidget(self.input_btn, 0, 2)
+        form_layout.addWidget(QLabel("支持拖拽 .xlsx 到窗口内"), 0, 3)
 
         form_layout.addWidget(QLabel("输出文件"), 1, 0)
         form_layout.addWidget(self.output_edit, 1, 1)
-        form_layout.addWidget(self.output_btn, 1, 2)
+        form_layout.addWidget(self.output_dir_btn, 1, 2)
+        form_layout.addWidget(self.output_btn, 1, 3)
 
         dedup_row = QWidget()
         dedup_layout = QHBoxLayout(dedup_row)
@@ -285,6 +299,7 @@ class MainWindow(QMainWindow):
         self.apply_styles()
 
         self.input_btn.clicked.connect(self.choose_input_file)
+        self.output_dir_btn.clicked.connect(self.choose_output_dir)
         self.output_btn.clicked.connect(self.choose_output_file)
         self.run_btn.clicked.connect(self.start_merge)
         self.clear_log_btn.clicked.connect(self.log_box.clear)
@@ -386,14 +401,69 @@ class MainWindow(QMainWindow):
     def append_log(self, text: str) -> None:
         self.log_box.appendPlainText(text)
 
+    def dragEnterEvent(self, event) -> None:
+        dropped_path = self.first_valid_dropped_file(event.mimeData().urls())
+        if dropped_path is not None:
+            event.acceptProposedAction()
+            return
+        event.ignore()
+
+    def dropEvent(self, event) -> None:
+        dropped_path = self.first_valid_dropped_file(event.mimeData().urls())
+        if dropped_path is None:
+            QMessageBox.warning(self, "不支持的文件", "请拖入一个 .xlsx 文件。")
+            event.ignore()
+            return
+
+        self.set_input_file(dropped_path)
+        self.append_log(f"已通过拖拽添加输入文件: {dropped_path}")
+        event.acceptProposedAction()
+
+    def first_valid_dropped_file(self, urls) -> Path | None:
+        for url in urls:
+            if not url.isLocalFile():
+                continue
+            path = Path(url.toLocalFile())
+            if path.is_file() and path.suffix.lower() == ".xlsx":
+                return path
+        return None
+
+    def set_input_file(self, file_path: Path) -> None:
+        resolved = file_path.expanduser().resolve()
+        self.input_edit.setText(str(resolved))
+
+        default_out = output_path_from_input(resolved)
+        current_output = self.output_edit.text().strip()
+        if not current_output or current_output == self.auto_output_path:
+            self.output_edit.setText(str(default_out))
+        self.auto_output_path = str(default_out)
+
     def choose_input_file(self) -> None:
         file_path, _ = QFileDialog.getOpenFileName(self, "选择输入 Excel 文件", "", "Excel (*.xlsx)")
         if not file_path:
             return
-        self.input_edit.setText(file_path)
-        if not self.output_edit.text().strip():
-            default_out = output_path_from_input(Path(file_path))
-            self.output_edit.setText(str(default_out))
+        self.set_input_file(Path(file_path))
+
+    def choose_output_dir(self) -> None:
+        input_raw = self.input_edit.text().strip()
+        input_path = Path(input_raw).expanduser().resolve() if input_raw else None
+
+        current = self.output_edit.text().strip()
+        current_path = Path(current).expanduser() if current else None
+        default_dir = current_path.parent if current_path else (input_path.parent if input_path else Path.home())
+        selected_dir = QFileDialog.getExistingDirectory(self, "选择输出目录", str(default_dir))
+        if not selected_dir:
+            return
+
+        if current_path and current_path.name:
+            file_name = current_path.name
+        elif input_path is not None:
+            file_name = output_path_from_input(input_path).name
+        else:
+            file_name = "合并去重结果.xlsx"
+
+        output_path = ensure_xlsx_suffix(Path(selected_dir) / file_name)
+        self.output_edit.setText(str(output_path))
 
     def choose_output_file(self) -> None:
         current = self.output_edit.text().strip()
@@ -406,7 +476,8 @@ class MainWindow(QMainWindow):
             "Excel (*.xlsx)",
         )
         if file_path:
-            self.output_edit.setText(file_path)
+            output_path = ensure_xlsx_suffix(Path(file_path).expanduser())
+            self.output_edit.setText(str(output_path))
 
     def start_merge(self) -> None:
         input_raw = self.input_edit.text().strip()
@@ -416,9 +487,15 @@ class MainWindow(QMainWindow):
 
         input_path = Path(input_raw).expanduser().resolve()
         output_raw = self.output_edit.text().strip()
-        output_path = Path(output_raw).expanduser().resolve() if output_raw else None
+        output_path = ensure_xlsx_suffix(Path(output_raw).expanduser()).resolve() if output_raw else None
         sheet_name = self.sheet_name_edit.text().strip() or "合并去重"
         dedup_by = "all" if self.all_btn.isChecked() else "en"
+
+        if output_path is not None:
+            if not output_path.parent.exists():
+                QMessageBox.warning(self, "输出目录不存在", f"请选择一个有效的输出目录：\n{output_path.parent}")
+                return
+            self.output_edit.setText(str(output_path))
 
         self.append_log("=" * 60)
         self.append_log(f"输入文件: {input_path}")
