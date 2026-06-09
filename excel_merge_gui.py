@@ -30,8 +30,8 @@ def norm(v) -> str:
     if v is None:
         return ""
     if isinstance(v, str):
-        return v.strip()
-    return str(v).strip()
+        return v.strip().replace("，", ",")
+    return str(v).strip().replace("，", ",")
 
 
 def detect_col_map(ws) -> Tuple[int, int, int]:
